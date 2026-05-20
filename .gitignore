@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+Backend/db.sqlite3
+Backend/media/*
+!Backend/media/.gitkeep
+Backend/venv
+Backend/__pycache__
+Backend/**/__pycache__
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

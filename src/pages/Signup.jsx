@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { signupUser } from '../api.js'
 import { saveCurrentUser } from '../authSession.js'
 
 export default function Signup() {
@@ -7,6 +8,7 @@ export default function Signup() {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    email: '',
     password: '',
     confirmPassword: '',
   })
@@ -18,7 +20,7 @@ export default function Signup() {
     setFormData((current) => ({ ...current, [name]: value }))
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
 
     if (formData.password !== formData.confirmPassword) {
@@ -26,13 +28,19 @@ export default function Signup() {
       return
     }
 
-    const firstName = formData.firstName.trim()
-    const lastName = formData.lastName.trim()
+    try {
+      const data = await signupUser({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+      })
 
-    saveCurrentUser({
-      name: `${firstName} ${lastName}`.trim(),
-    })
-    navigate('/home')
+      saveCurrentUser(data.user)
+      navigate('/home')
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   return (
@@ -70,6 +78,18 @@ export default function Signup() {
               />
             </label>
           </div>
+
+          <label>
+            Email
+            <input
+              name="email"
+              type="email"
+              placeholder="you@example.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </label>
 
           <label>
             Password

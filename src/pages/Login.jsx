@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { loginUser } from '../api.js'
 import { saveCurrentUser } from '../authSession.js'
 
 export default function Login() {
@@ -8,22 +9,28 @@ export default function Login() {
     email: '',
     password: '',
   })
+  const [error, setError] = useState('')
 
   function handleChange(event) {
     const { name, value } = event.target
+    setError('')
     setFormData((current) => ({ ...current, [name]: value }))
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    const email = formData.email.trim()
-    const fallbackName = email.split('@')[0] || 'User'
 
-    saveCurrentUser({
-      name: fallbackName,
-      email,
-    })
-    navigate('/home')
+    try {
+      const data = await loginUser({
+        email: formData.email,
+        password: formData.password,
+      })
+
+      saveCurrentUser(data.user)
+      navigate('/home')
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   return (
@@ -59,6 +66,8 @@ export default function Login() {
               required
             />
           </label>
+
+          {error && <p className="auth-error">{error}</p>}
 
           <button type="submit" className="primary-button auth-submit">
             Login

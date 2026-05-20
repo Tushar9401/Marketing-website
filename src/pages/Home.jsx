@@ -1,107 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import {
+  clearPlaylistMedia,
+  createPlaylist,
+  deleteMedia,
+  deletePlaylist,
+  fetchPlaylistMedia,
+  fetchPlaylists,
+  fetchPublicPlaylistMedia,
+  reorderPlaylistMedia,
+  uploadPlaylistMedia,
+} from '../api.js'
 import { clearCurrentUser, getCurrentUser } from '../authSession.js'
 import '../App.css'
 
-const DB_NAME = 'ad-slideshow-cache'
-const STORE_NAME = 'media'
-const DB_VERSION = 1
-const LISTS_STORAGE_KEY = 'ad-slideshow-lists'
-const DEFAULT_LIST_ID = 'main-display'
 const IMAGE_DURATION = 4000
 const SLIDE_TRANSITION_DURATION = 650
-
-function openMediaDb() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-
-    request.onupgradeneeded = () => {
-      const db = request.result
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' })
-      }
-    }
-
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
-
-async function withMediaStore(mode, callback) {
-  const db = await openMediaDb()
-
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, mode)
-    const store = transaction.objectStore(STORE_NAME)
-    const result = callback(store)
-
-    transaction.oncomplete = () => {
-      db.close()
-      resolve(result)
-    }
-    transaction.onerror = () => {
-      db.close()
-      reject(transaction.error)
-    }
-  })
-}
-
-function getAllMedia() {
-  return withMediaStore('readonly', (store) => {
-    const request = store.getAll()
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => {
-        resolve(request.result.sort((a, b) => a.createdAt - b.createdAt))
-      }
-      request.onerror = () => reject(request.error)
-    })
-  })
-}
-
-function addMedia(item) {
-  return withMediaStore('readwrite', (store) => store.put(item))
-}
-
-function updateMedia(item) {
-  return withMediaStore('readwrite', (store) => store.put(item))
-}
-
-function deleteMedia(id) {
-  return withMediaStore('readwrite', (store) => store.delete(id))
-}
-
-function getStoredLists() {
-  try {
-    const lists = JSON.parse(localStorage.getItem(LISTS_STORAGE_KEY) ?? '[]')
-    if (Array.isArray(lists) && lists.length) return lists
-  } catch {
-    localStorage.removeItem(LISTS_STORAGE_KEY)
-  }
-
-  return [{ id: DEFAULT_LIST_ID, name: 'Main Display', createdAt: Date.now() }]
-}
-
-function saveStoredLists(lists) {
-  localStorage.setItem(LISTS_STORAGE_KEY, JSON.stringify(lists))
-}
-
-function useObjectUrls(items) {
-  const urls = useMemo(() => {
-    const nextUrls = {}
-    items.forEach((item) => {
-      nextUrls[item.id] = URL.createObjectURL(item.blob)
-    })
-    return nextUrls
-  }, [items])
-
-  useEffect(() => {
-    return () => {
-      Object.values(urls).forEach((url) => URL.revokeObjectURL(url))
-    }
-  }, [urls])
-
-  return urls
-}
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B'
@@ -115,146 +29,170 @@ export default function Home() {
   const navigate = useNavigate()
   const inputRef = useRef(null)
   const [currentUser] = useState(() => getCurrentUser())
-  const [lists, setLists] = useState(() => getStoredLists())
-  const [selectedListId, setSelectedListId] = useState(() => getStoredLists()[0].id)
+  const [lists, setLists] = useState([])
+  const [selectedListId, setSelectedListId] = useState('')
   const [newListName, setNewListName] = useState('')
+  const [listError, setListError] = useState('')
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [draggedItemId, setDraggedItemId] = useState('')
   const [dragOverItemId, setDragOverItemId] = useState('')
-  const activeList = lists.find((list) => list.id === selectedListId) ?? lists[0]
-  const selectedItems = items.filter((item) => (item.listId ?? DEFAULT_LIST_ID) === activeList.id)
-  const urls = useObjectUrls(selectedItems)
+  const activeList = lists.find((list) => String(list.id) === String(selectedListId))
+  const selectedItems = items
   const hasItems = selectedItems.length > 0
 
   const listStats = useMemo(() => {
     return lists.reduce((stats, list) => {
-      stats[list.id] = items.filter((item) => (item.listId ?? DEFAULT_LIST_ID) === list.id).length
+      stats[list.id] = String(list.id) === String(selectedListId) ? selectedItems.length : list.itemCount
       return stats
     }, {})
-  }, [items, lists])
+  }, [lists, selectedItems.length, selectedListId])
 
-  async function refresh() {
-    setItems(await getAllMedia())
+  const authToken = currentUser?.token
+
+  const loadPlaylists = useCallback(async () => {
+    if (!authToken) return
+    const data = await fetchPlaylists(authToken)
+    setLists(data.playlists)
+    setSelectedListId((current) => current || data.playlists[0]?.id || '')
+  }, [authToken])
+
+  const loadSelectedMedia = useCallback(async () => {
+    if (!authToken || !selectedListId) return
+    setIsLoading(true)
+    const data = await fetchPlaylistMedia(authToken, selectedListId)
+    setItems(data.media)
     setIsLoading(false)
-  }
-
-  function updateLists(nextLists) {
-    setLists(nextLists)
-    saveStoredLists(nextLists)
-  }
+  }, [authToken, selectedListId])
 
   useEffect(() => {
-    let isActive = true
-
-    queueMicrotask(async () => {
-      try {
-        const media = await getAllMedia()
-        if (isActive) {
-          setItems(media)
-          setIsLoading(false)
-        }
-      } catch {
-        if (isActive) {
-          setMessage('Could not read the browser cache.')
-          setIsLoading(false)
-        }
-      }
-    })
-
-    return () => {
-      isActive = false
+    if (!authToken) {
+      navigate('/login')
+      return
     }
-  }, [])
+
+    queueMicrotask(() => {
+      loadPlaylists().catch((error) => {
+        setMessage(error.message)
+        setIsLoading(false)
+      })
+    })
+  }, [authToken, loadPlaylists, navigate])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      loadSelectedMedia().catch((error) => {
+        setMessage(error.message)
+        setIsLoading(false)
+      })
+    })
+  }, [loadSelectedMedia])
+
+  async function refreshAll() {
+    await loadPlaylists()
+    await loadSelectedMedia()
+  }
 
   async function handleFilesSelected(event) {
     const files = Array.from(event.target.files ?? [])
-    if (!files.length) return
+    if (!files.length || !activeList || !authToken) return
 
     setMessage('Adding media...')
     const mediaFiles = files.filter((file) => file.type.startsWith('image/') || file.type.startsWith('video/'))
 
-    await Promise.all(
-      mediaFiles.map((file, index) =>
-        addMedia({
-          id: `${Date.now()}-${index}-${crypto.randomUUID()}`,
-          listId: activeList.id,
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          blob: file,
-          createdAt: Date.now() + index,
-        }),
-      ),
-    )
-
-    event.target.value = ''
-    await refresh()
-    setMessage(
-      mediaFiles.length === files.length
-        ? `${mediaFiles.length} item${mediaFiles.length === 1 ? '' : 's'} added to ${activeList.name}.`
-        : 'Only image and video files were added.',
-    )
+    try {
+      await uploadPlaylistMedia(authToken, activeList.id, mediaFiles)
+      event.target.value = ''
+      await refreshAll()
+      setMessage(
+        mediaFiles.length === files.length
+          ? `${mediaFiles.length} item${mediaFiles.length === 1 ? '' : 's'} added to ${activeList.name}.`
+          : 'Only image and video files were added.',
+      )
+    } catch (error) {
+      setMessage(error.message)
+    }
   }
 
-  function handleCreateList(event) {
+  async function handleCreateList(event) {
     event.preventDefault()
     const name = newListName.trim()
-    if (!name) return
+    setListError('')
+    if (!name || !authToken) return
 
-    const nextList = {
-      id: `${Date.now()}-${crypto.randomUUID()}`,
-      name,
-      createdAt: Date.now(),
-    }
-
-    updateLists([...lists, nextList])
-    setSelectedListId(nextList.id)
-    setNewListName('')
-    setMessage(`${name} list created.`)
-  }
-
-  async function handleDeleteList() {
-    if (lists.length === 1) {
-      setMessage('At least one list is required.')
+    if (lists.some((list) => list.name.trim().toLowerCase() === name.toLowerCase())) {
+      setListError('You already have a list with this name.')
       return
     }
 
-    await Promise.all(selectedItems.map((item) => deleteMedia(item.id)))
-    const nextLists = lists.filter((list) => list.id !== activeList.id)
-    updateLists(nextLists)
-    setSelectedListId(nextLists[0].id)
-    await refresh()
-    setMessage(`${activeList.name} list removed.`)
+    try {
+      const data = await createPlaylist(authToken, name)
+      await loadPlaylists()
+      setSelectedListId(data.playlist.id)
+      setItems([])
+      setNewListName('')
+      setMessage(`${name} list created.`)
+    } catch (error) {
+      setListError(error.message)
+      setMessage(error.message)
+    }
+  }
+
+  async function handleDeleteList() {
+    if (!activeList || !authToken) return
+
+    try {
+      await deletePlaylist(authToken, activeList.id)
+      const data = await fetchPlaylists(authToken)
+      setLists(data.playlists)
+      setSelectedListId(data.playlists[0]?.id || '')
+      setItems([])
+      setMessage(`${activeList.name} list removed.`)
+    } catch (error) {
+      setMessage(error.message)
+    }
   }
 
   async function handleRemove(id) {
-    await deleteMedia(id)
-    await refresh()
-    setMessage('Media removed.')
+    if (!authToken) return
+
+    try {
+      await deleteMedia(authToken, id)
+      await refreshAll()
+      setMessage('Media removed.')
+    } catch (error) {
+      setMessage(error.message)
+    }
   }
 
   async function handleClear() {
-    await Promise.all(selectedItems.map((item) => deleteMedia(item.id)))
-    await refresh()
-    setMessage(`${activeList.name} cleared.`)
+    if (!activeList || !authToken) return
+
+    try {
+      await clearPlaylistMedia(authToken, activeList.id)
+      await refreshAll()
+      setMessage(`${activeList.name} cleared.`)
+    } catch (error) {
+      setMessage(error.message)
+    }
   }
 
   async function persistMediaOrder(reorderedItems) {
-    const baseOrder = selectedItems[0]?.createdAt ?? 0
+    if (!activeList || !authToken) return
 
-    await Promise.all(
-      reorderedItems.map((item, index) =>
-        updateMedia({
-          ...item,
-          createdAt: baseOrder + index,
-        }),
-      ),
-    )
-
-    await refresh()
-    setMessage(`${activeList.name} order updated.`)
+    try {
+      const data = await reorderPlaylistMedia(
+        authToken,
+        activeList.id,
+        reorderedItems.map((item) => item.id),
+      )
+      setItems(data.media)
+      await loadPlaylists()
+      setMessage(`${activeList.name} order updated.`)
+    } catch (error) {
+      setMessage(error.message)
+    }
   }
 
   async function handleDropMedia(targetId) {
@@ -275,10 +213,12 @@ export default function Home() {
 
     setDraggedItemId('')
     setDragOverItemId('')
+    setItems(reorderedItems)
     await persistMediaOrder(reorderedItems)
   }
 
   function openShowTab() {
+    if (!activeList) return
     window.open(`/show/${encodeURIComponent(activeList.id)}`, '_blank', 'noopener,noreferrer')
   }
 
@@ -305,11 +245,11 @@ export default function Home() {
 
         <div className="toolbar">
           <div>
-            <p className="eyebrow">Client-side ad playlists</p>
+            <p className="eyebrow">Django powered ad playlists</p>
             <h1>Marketing Builder</h1>
           </div>
           <div className="toolbar-actions">
-            <button type="button" className="secondary-button" onClick={() => inputRef.current?.click()}>
+            <button type="button" className="secondary-button" onClick={() => inputRef.current?.click()} disabled={!activeList}>
               Add media
             </button>
             <button type="button" className="primary-button" onClick={openShowTab} disabled={!hasItems}>
@@ -332,18 +272,22 @@ export default function Home() {
                 type="text"
                 placeholder="New list name"
                 value={newListName}
-                onChange={(event) => setNewListName(event.target.value)}
+                onChange={(event) => {
+                  setNewListName(event.target.value)
+                  setListError('')
+                }}
               />
               <button type="submit" className="secondary-button">
                 Add
               </button>
             </form>
+            {listError && <p className="list-error">{listError}</p>}
 
             <div className="list-tabs" role="listbox" aria-label="Choose list">
               {lists.map((list) => (
                 <button
                   type="button"
-                  className={`list-tab ${list.id === activeList.id ? 'is-active' : ''}`}
+                  className={`list-tab ${String(list.id) === String(selectedListId) ? 'is-active' : ''}`}
                   key={list.id}
                   onClick={() => setSelectedListId(list.id)}
                 >
@@ -357,12 +301,10 @@ export default function Home() {
           <div className="list-summary">
             <div>
               <p className="eyebrow">Selected list</p>
-              <h2>{activeList.name}</h2>
-              <p>
-                Add media here, remove items from this list, or launch only this list in the fullscreen display.
-              </p>
+              <h2>{activeList?.name || 'Loading lists...'}</h2>
+              <p>Add media here, remove items from this list, or launch only this list in the fullscreen display.</p>
             </div>
-            <button type="button" className="text-button danger-text-button" onClick={handleDeleteList}>
+            <button type="button" className="text-button danger-text-button" onClick={handleDeleteList} disabled={!activeList}>
               Delete list
             </button>
           </div>
@@ -380,16 +322,16 @@ export default function Home() {
         <div className="drop-zone" onClick={() => inputRef.current?.click()} role="button" tabIndex="0">
           <div>
             <strong>Attach images and videos</strong>
-            <span>Files will be added to {activeList.name} and cached in this browser.</span>
+            <span>Files will be uploaded to {activeList?.name || 'the selected list'} in Django.</span>
           </div>
         </div>
 
         <div className="section-header">
           <div>
-            <h2>{activeList.name} media</h2>
+            <h2>{activeList?.name || 'Current'} media</h2>
             <p>
               {isLoading
-                ? 'Loading cache...'
+                ? 'Loading media...'
                 : `${selectedItems.length} item${selectedItems.length === 1 ? '' : 's'} ready`}
             </p>
           </div>
@@ -412,7 +354,7 @@ export default function Home() {
                 onDragStart={(event) => {
                   setDraggedItemId(item.id)
                   event.dataTransfer.effectAllowed = 'move'
-                  event.dataTransfer.setData('text/plain', item.id)
+                  event.dataTransfer.setData('text/plain', String(item.id))
                 }}
                 onDragEnd={() => {
                   setDraggedItemId('')
@@ -433,9 +375,9 @@ export default function Home() {
               >
                 <div className="preview-frame">
                   {item.type.startsWith('video/') ? (
-                    <video src={urls[item.id]} muted playsInline />
+                    <video src={item.url} muted playsInline />
                   ) : (
-                    <img src={urls[item.id]} alt={item.name} />
+                    <img src={item.url} alt={item.name} />
                   )}
                   <span className="order-badge">{index + 1}</span>
                 </div>
@@ -460,7 +402,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="empty-state">
-            <h2>No media in {activeList.name}</h2>
+            <h2>No media in {activeList?.name || 'this list'}</h2>
             <p>Add images or videos to this list, then use Show to launch this list fullscreen.</p>
           </div>
         )}
@@ -470,24 +412,29 @@ export default function Home() {
 }
 
 export function Slideshow() {
-  const { listId = DEFAULT_LIST_ID } = useParams()
+  const { listId } = useParams()
   const videoRef = useRef(null)
   const transitionTimeoutRef = useRef(null)
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeIndex, setActiveIndex] = useState(0)
   const [isChanging, setIsChanging] = useState(false)
-  const urls = useObjectUrls(items)
   const activeItem = items[activeIndex]
 
   useEffect(() => {
-    getAllMedia()
-      .then((media) => {
-        const selectedMedia = media.filter((item) => (item.listId ?? DEFAULT_LIST_ID) === listId)
-        setItems(selectedMedia)
-        setIsLoading(false)
-      })
-      .catch(() => setIsLoading(false))
+    if (!listId) {
+      queueMicrotask(() => setIsLoading(false))
+      return
+    }
+
+    queueMicrotask(() => {
+      fetchPublicPlaylistMedia(listId)
+        .then((data) => {
+          setItems(data.media)
+          setIsLoading(false)
+        })
+        .catch(() => setIsLoading(false))
+    })
   }, [listId])
 
   const nextSlide = useCallback(() => {
@@ -528,7 +475,7 @@ export function Slideshow() {
   if (!items.length) {
     return (
       <main className="slideshow-screen empty-show">
-        <h1>No media in cache</h1>
+        <h1>No media in this list</h1>
         <button type="button" onClick={() => window.close()}>
           Close
         </button>
@@ -540,9 +487,9 @@ export function Slideshow() {
     <main className="slideshow-screen">
       <div className="slide-backdrop" aria-hidden="true">
         {activeItem.type.startsWith('video/') ? (
-          <video key={`backdrop-${activeItem.id}`} src={urls[activeItem.id]} muted playsInline autoPlay />
+          <video key={`backdrop-${activeItem.id}`} src={activeItem.url} muted playsInline autoPlay />
         ) : (
-          <img key={`backdrop-${activeItem.id}`} src={urls[activeItem.id]} alt="" />
+          <img key={`backdrop-${activeItem.id}`} src={activeItem.url} alt="" />
         )}
       </div>
       <div className="slide-stage">
@@ -550,7 +497,7 @@ export function Slideshow() {
           <video
             ref={videoRef}
             key={activeItem.id}
-            src={urls[activeItem.id]}
+            src={activeItem.url}
             className={`slide-media ${isChanging ? 'is-exiting' : ''}`}
             autoPlay
             muted
@@ -560,7 +507,7 @@ export function Slideshow() {
         ) : (
           <img
             key={activeItem.id}
-            src={urls[activeItem.id]}
+            src={activeItem.url}
             className={`slide-media ${isChanging ? 'is-exiting' : ''}`}
             alt={activeItem.name}
           />
