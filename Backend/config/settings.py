@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-marketing-builder-local-dev-key"
 DEBUG = True
 ALLOWED_HOSTS = ["104.248.52.151", "127.0.0.1", "localhost"]
-STATIC_ROOT = BASE_DIR / "staticfiles"
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -18,6 +18,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "api.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -32,7 +33,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR.parent / "dist"],  # points to /var/www/Marketing-website/dist
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -61,7 +62,10 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR.parent / "dist" / "assets"]
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
