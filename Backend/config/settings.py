@@ -4,7 +4,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = "django-insecure-marketing-builder-local-dev-key"
 DEBUG = True
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+ALLOWED_HOSTS = ["104.248.52.151", "127.0.0.1", "localhost"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 INSTALLED_APPS = [
     "django.contrib.admin",
