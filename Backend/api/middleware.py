@@ -1,4 +1,5 @@
-from django.http import HttpResponse
+from django.core.exceptions import RequestDataTooBig
+from django.http import HttpResponse, JsonResponse
 
 
 ALLOWED_ORIGINS = {
@@ -15,7 +16,13 @@ class CorsMiddleware:
         if request.method == "OPTIONS":
             response = HttpResponse()
         else:
-            response = self.get_response(request)
+            try:
+                response = self.get_response(request)
+            except RequestDataTooBig:
+                response = JsonResponse(
+                    {"error": "Upload is too large. Please use files up to 500 MB."},
+                    status=413,
+                )
 
         origin = request.headers.get("Origin")
         if origin in ALLOWED_ORIGINS:

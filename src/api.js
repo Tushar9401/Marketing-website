@@ -21,6 +21,10 @@ async function request(path, options = {}) {
   const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
+    if (response.status === 413) {
+      throw new Error(data.error || 'Upload is too large. Ask the server to allow larger image and video uploads.')
+    }
+
     throw new Error(data.error || 'Something went wrong.')
   }
 

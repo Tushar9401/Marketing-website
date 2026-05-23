@@ -69,4 +69,12 @@ STATICFILES_DIRS = [BASE_DIR.parent / "dist"]
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Allow large screenshots and video files to be uploaded through the API.
+# If production uses Nginx/Apache in front of Django, its body-size limit must
+# be at least this large too.
+MAX_MEDIA_UPLOAD_SIZE = 500 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_MEDIA_UPLOAD_SIZE
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+DATA_UPLOAD_MAX_NUMBER_FILES = 100
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
