@@ -27,6 +27,6 @@ class CorsMiddleware:
         origin = request.headers.get("Origin")
         if origin in ALLOWED_ORIGINS:
             response["Access-Control-Allow-Origin"] = origin
-        response["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
         return response

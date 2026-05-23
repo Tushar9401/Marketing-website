@@ -33,6 +33,7 @@ class MediaItem(models.Model):
     content_type = models.CharField(max_length=120)
     size = models.PositiveIntegerField(default=0)
     order = models.PositiveIntegerField(default=0)
+    duration_seconds = models.PositiveSmallIntegerField(default=5)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

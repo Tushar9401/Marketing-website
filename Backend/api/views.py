@@ -41,6 +41,7 @@ def media_payload(item, request):
         "name": item.name,
         "type": item.content_type,
         "size": item.size,
+        "durationSeconds": item.duration_seconds,
         "order": item.order,
         "url": request.build_absolute_uri(item.file.url),
     }
@@ -218,6 +219,22 @@ def playlist_media(request, playlist_id):
 @require_user
 def media_detail(request, media_id):
     item = get_object_or_404(MediaItem, id=media_id, playlist__owner=request.api_user)
+
+    if request.method == "PATCH":
+        data = read_json(request)
+        duration_seconds = data.get("durationSeconds")
+
+        try:
+            duration_seconds = int(duration_seconds)
+        except (TypeError, ValueError):
+            return api_error("Duration must be a whole number of seconds.")
+
+        if not 1 <= duration_seconds <= 300:
+            return api_error("Duration must be between 1 and 300 seconds.")
+
+        item.duration_seconds = duration_seconds
+        item.save(update_fields=["duration_seconds"])
+        return JsonResponse({"media": media_payload(item, request)})
 
     if request.method == "DELETE":
         item.file.delete(save=False)

@@ -9,12 +9,13 @@ import {
   fetchPlaylists,
   fetchPublicPlaylistMedia,
   reorderPlaylistMedia,
+  updateMediaDuration,
   uploadPlaylistMedia,
 } from '../api.js'
 import { clearCurrentUser, getCurrentUser } from '../authSession.js'
 import '../App.css'
 
-const IMAGE_DURATION = 4000
+const DEFAULT_IMAGE_DURATION_SECONDS = 5
 const SLIDE_TRANSITION_DURATION = 650
 
 function formatBytes(bytes) {
@@ -163,6 +164,34 @@ export default function Home() {
       setMessage('Media removed.')
     } catch (error) {
       setMessage(error.message)
+    }
+  }
+
+  function handleDurationChange(itemId, value) {
+    const durationSeconds = value === '' ? '' : Number(value)
+
+    setItems((currentItems) =>
+      currentItems.map((item) => (item.id === itemId ? { ...item, durationSeconds } : item)),
+    )
+  }
+
+  async function saveDuration(item, value) {
+    if (!authToken || item.type.startsWith('video/')) return
+
+    const durationSeconds = Math.min(300, Math.max(1, Number(value) || DEFAULT_IMAGE_DURATION_SECONDS))
+
+    setItems((currentItems) =>
+      currentItems.map((currentItem) =>
+        currentItem.id === item.id ? { ...currentItem, durationSeconds } : currentItem,
+      ),
+    )
+
+    try {
+      await updateMediaDuration(authToken, item.id, durationSeconds)
+      setMessage(`${item.name} will show for ${durationSeconds} second${durationSeconds === 1 ? '' : 's'}.`)
+    } catch (error) {
+      setMessage(error.message)
+      await loadSelectedMedia()
     }
   }
 
@@ -387,6 +416,25 @@ export default function Home() {
                     <p>
                       {item.type.startsWith('video/') ? 'Video' : 'Image'} · {formatBytes(item.size)}
                     </p>
+                    {!item.type.startsWith('video/') && (
+                      <label className="duration-control" onPointerDown={(event) => event.stopPropagation()}>
+                        <span>Seconds</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="300"
+                          step="1"
+                          value={item.durationSeconds ?? DEFAULT_IMAGE_DURATION_SECONDS}
+                          onChange={(event) => handleDurationChange(item.id, event.target.value)}
+                          onBlur={(event) => saveDuration(item, event.currentTarget.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.currentTarget.blur()
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
                   </div>
                   <div className="media-actions">
                     <span className="drag-handle" aria-label={`Drag ${item.name} to reorder`}>
@@ -454,7 +502,8 @@ export function Slideshow() {
 
   useEffect(() => {
     if (!activeItem || activeItem.type.startsWith('video/') || isChanging) return undefined
-    const timer = window.setTimeout(nextSlide, IMAGE_DURATION)
+    const durationSeconds = Number(activeItem.durationSeconds) || DEFAULT_IMAGE_DURATION_SECONDS
+    const timer = window.setTimeout(nextSlide, durationSeconds * 1000)
     return () => window.clearTimeout(timer)
   }, [activeItem, isChanging, nextSlide])
 

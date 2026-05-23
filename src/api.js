@@ -93,6 +93,14 @@ export function deleteMedia(token, mediaId) {
   })
 }
 
+export function updateMediaDuration(token, mediaId, durationSeconds) {
+  return request(`/media/${mediaId}/`, {
+    method: 'PATCH',
+    token,
+    body: { durationSeconds },
+  })
+}
+
 export function reorderPlaylistMedia(token, playlistId, mediaIds) {
   return request(`/playlists/${playlistId}/media/reorder/`, {
     method: 'POST',

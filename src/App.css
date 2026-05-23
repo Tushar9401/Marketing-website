@@ -590,7 +590,7 @@ button:disabled {
 .media-meta h3 {
   color: var(--heading);
   font-size: 0.98rem;
-  max-width: 128px;
+  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -598,6 +598,35 @@ button:disabled {
 
 .media-meta p {
   font-size: 0.88rem;
+}
+
+.duration-control {
+  width: fit-content;
+  display: grid;
+  grid-template-columns: auto 64px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--heading);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.duration-control input {
+  width: 64px;
+  min-height: 34px;
+  border: 1px solid rgba(114, 132, 145, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--heading);
+  font: inherit;
+  padding: 0 8px;
+}
+
+.duration-control input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 135, 151, 0.14);
+  outline: none;
 }
 
 .media-actions {
