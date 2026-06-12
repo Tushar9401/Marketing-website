@@ -5,6 +5,8 @@ from django.http import HttpResponse, JsonResponse
 ALLOWED_ORIGINS = {
     "http://127.0.0.1:5173",
     "http://localhost:5173",
+    "http://127.0.0.1:5174",
+    "http://localhost:5174",
 }
 
 
@@ -27,6 +29,8 @@ class CorsMiddleware:
         origin = request.headers.get("Origin")
         if origin in ALLOWED_ORIGINS:
             response["Access-Control-Allow-Origin"] = origin
+            response["Vary"] = "Origin"
         response["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response["Access-Control-Max-Age"] = "86400"
         return response

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { loginUser } from '../api.js'
 import { saveCurrentUser } from '../authSession.js'
+import AuthShowcase from '../components/AuthShowcase.jsx'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -34,49 +35,57 @@ export default function Login() {
   }
 
   return (
-    <main className="auth-shell">
-      <section className="auth-panel">
-        <div className="auth-intro">
-          <p className="eyebrow">Welcome back</p>
-          <h1>Login</h1>
-          <p>Sign in to manage your marketing media playlist.</p>
+    <main className="auth-shell signup-shell">
+      <section className="auth-layout signup-layout">
+        <AuthShowcase />
+
+        <div className="auth-panel signup-panel login-panel">
+          <div className="auth-mobile-brand app-brand">
+            <span className="brand-mark">M</span>
+            <span>MarketFlow</span>
+          </div>
+          <div className="auth-intro">
+            <p className="eyebrow">Welcome back</p>
+            <h1>Sign in to your <span>workspace</span></h1>
+            <p>Manage playlists and launch your next promotion.</p>
+          </div>
+
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <label>
+              Email address
+              <input
+                name="email"
+                type="email"
+                placeholder="you@example.com"
+                value={formData.email}
+                onChange={handleChange}
+                required
+              />
+            </label>
+
+            <label>
+              Password
+              <input
+                name="password"
+                type="password"
+                placeholder="Enter your password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+              />
+            </label>
+
+            {error && <p className="auth-error">{error}</p>}
+
+            <button type="submit" className="primary-button auth-submit">
+              Sign in <span aria-hidden="true">→</span>
+            </button>
+          </form>
+
+          <p className="auth-switch">
+            New to MarketFlow? <Link to="/signup">Create an account</Link>
+          </p>
         </div>
-
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label>
-            Email
-            <input
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
-          </label>
-
-          <label>
-            Password
-            <input
-              name="password"
-              type="password"
-              placeholder="Enter password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
-          </label>
-
-          {error && <p className="auth-error">{error}</p>}
-
-          <button type="submit" className="primary-button auth-submit">
-            Login
-          </button>
-        </form>
-
-        <p className="auth-switch">
-          New here? <Link to="/signup">Create an account</Link>
-        </p>
       </section>
     </main>
   )

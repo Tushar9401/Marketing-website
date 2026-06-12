@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8001/api'
 
 async function request(path, options = {}) {
   const headers = new Headers(options.headers)
@@ -73,6 +73,26 @@ export function uploadPlaylistMedia(token, playlistId, files) {
   files.forEach((file) => formData.append('files', file))
 
   return request(`/playlists/${playlistId}/media/`, {
+    method: 'POST',
+    token,
+    body: formData,
+  })
+}
+
+export function submitAdRequest(token, payload) {
+  const formData = new FormData()
+  formData.append('templateId', payload.templateId)
+  formData.append('templateName', payload.templateName)
+  formData.append('templateImage', payload.templateImage)
+  formData.append('text', payload.text)
+  formData.append('playlistName', payload.playlistName || '')
+  formData.append('previewImage', payload.previewImage)
+
+  if (payload.sourceImage) {
+    formData.append('sourceImage', payload.sourceImage)
+  }
+
+  return request('/ad-requests/', {
     method: 'POST',
     token,
     body: formData,

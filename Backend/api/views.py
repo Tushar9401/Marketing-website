@@ -1,7 +1,9 @@
 import json
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
+from django.core.mail import EmailMessage
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -10,6 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import AuthToken, MediaItem, Playlist
 
 User = get_user_model()
+MAX_PLAYLISTS_PER_USER = 5
 
 
 def read_json(request):
@@ -152,6 +155,8 @@ def playlists(request):
         name = data.get("name", "").strip()
         if not name:
             return api_error("List name is required.")
+        if user.playlists.count() >= MAX_PLAYLISTS_PER_USER:
+            return api_error(f"You can create up to {MAX_PLAYLISTS_PER_USER} lists only.", status=409)
         if user.playlists.filter(name__iexact=name).exists():
             return api_error("You already have a list with this name.", status=409)
         playlist = Playlist.objects.create(owner=user, name=name)
@@ -265,6 +270,60 @@ def reorder_media(request, playlist_id):
 
     media = [media_payload(item, request) for item in playlist.media_items.all()]
     return JsonResponse({"media": media})
+
+
+@csrf_exempt
+@require_user
+def ad_requests(request):
+    if request.method != "POST":
+        return api_error("Method not allowed", status=405)
+
+    user = request.api_user
+    template_id = request.POST.get("templateId", "").strip()
+    template_name = request.POST.get("templateName", "").strip()
+    template_image = request.POST.get("templateImage", "").strip()
+    text = request.POST.get("text", "").strip()
+    playlist_name = request.POST.get("playlistName", "").strip()
+    preview_image = request.FILES.get("previewImage")
+    source_image = request.FILES.get("sourceImage")
+
+    if not template_name or not template_id:
+        return api_error("Template details are required.")
+    if not preview_image:
+        return api_error("Preview image is required.")
+
+    subject = f"New ad request from {user.get_full_name().strip() or user.email or user.username}"
+    body = "\n".join(
+        [
+            "A new ad design request was submitted.",
+            "",
+            f"User: {user.get_full_name().strip() or user.username}",
+            f"Email: {user.email or 'Not provided'}",
+            f"Playlist: {playlist_name or 'Not selected'}",
+            "",
+            f"Selected template: {template_name} ({template_id})",
+            f"Template image: {template_image}",
+            f"Text / prompt: {text or 'No text provided'}",
+            f"Uploaded centre image: {'Attached' if source_image else 'Not provided'}",
+            "",
+            "The generated preview image is attached for designer review.",
+        ]
+    )
+
+    email = EmailMessage(
+        subject=subject,
+        body=body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[settings.AD_REQUEST_EMAIL],
+        reply_to=[user.email] if user.email else None,
+    )
+    email.attach(preview_image.name, preview_image.read(), preview_image.content_type or "image/png")
+
+    if source_image:
+        email.attach(source_image.name, source_image.read(), source_image.content_type or "application/octet-stream")
+
+    email.send(fail_silently=False)
+    return JsonResponse({"ok": True})
 
 
 def public_playlist_media(request, playlist_id):
