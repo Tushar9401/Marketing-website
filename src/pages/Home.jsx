@@ -1139,7 +1139,7 @@ export function Slideshow() {
       </div>
       <div className="slide-powered-by" aria-label="Powered by Bright core Solutions">
         <img src={BRIGHT_CORE_LOGO} alt="" aria-hidden="true" />
-        <span>Powered by Bright core Solutions</span>
+        <span>Powered by BrightCore Solutions</span>
       </div>
     </main>
   )
