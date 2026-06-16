@@ -20,6 +20,7 @@ const DEFAULT_IMAGE_DURATION_SECONDS = 5
 const SLIDE_TRANSITION_DURATION = 650
 const MAX_LISTS_PER_USER = 5
 const TEMPLATE_BASE_URL = import.meta.env.BASE_URL
+const BRIGHT_CORE_LOGO = `${TEMPLATE_BASE_URL}bright-core-logo.jpeg`
 const PROMO_TEMPLATES = [
   {
     id: 'beer',
@@ -1135,6 +1136,10 @@ export function Slideshow() {
       </div>
       <div className="slide-counter">
         {activeIndex + 1} / {items.length}
+      </div>
+      <div className="slide-powered-by" aria-label="Powered by Bright core Solutions">
+        <img src={BRIGHT_CORE_LOGO} alt="" aria-hidden="true" />
+        <span>Powered by Bright core Solutions</span>
       </div>
     </main>
   )

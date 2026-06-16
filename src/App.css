@@ -1021,6 +1021,42 @@ button:disabled {
   z-index: 2;
 }
 
+.slide-powered-by {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(12px, 1.5vw, 24px);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 460px);
+  min-height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(14px);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: clamp(0.78rem, 1.6vw, 0.95rem);
+  font-weight: 800;
+  line-height: 1.15;
+  padding: 7px 14px 7px 8px;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.slide-powered-by img {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: white;
+  object-fit: cover;
+}
+
+.slide-powered-by span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .empty-show {
   gap: 18px;
   align-content: center;
