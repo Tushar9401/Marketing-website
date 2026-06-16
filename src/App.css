@@ -1023,29 +1023,29 @@ button:disabled {
 
 .slide-powered-by {
   position: fixed;
-  left: 50%;
+  left: clamp(14px, 2vw, 28px);
   bottom: clamp(12px, 1.5vw, 24px);
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  max-width: min(92vw, 460px);
-  min-height: 46px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  gap: 12px;
+  max-width: min(calc(100vw - 110px), 520px);
+  min-height: 58px;
+  border: 2px solid rgba(34, 211, 238, 0.72);
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(14px);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: clamp(0.78rem, 1.6vw, 0.95rem);
-  font-weight: 800;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.34);
+  color: #0f172a;
+  font-size: clamp(0.95rem, 1.7vw, 1.15rem);
+  font-weight: 900;
   line-height: 1.15;
-  padding: 7px 14px 7px 8px;
-  transform: translateX(-50%);
-  z-index: 2;
+  padding: 8px 18px 8px 9px;
+  pointer-events: none;
+  z-index: 20;
 }
 
 .slide-powered-by img {
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
   flex: 0 0 auto;
   border-radius: 50%;
   background: white;
